@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Support System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+</head>
+<body class="bg-gray-100 p-6">
+
+    <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-bold mb-4 text-center">Decision Support System</h2>
+
+        <!-- Select Method -->
+        <label class="block mb-3">
+            <span class="text-gray-700">Choose Calculation Method</span>
+            <select id="method" class="mt-1 block w-full p-2 border-gray-300 rounded">
+                <option value="saw">Simple Additive Weighting (SAW)</option>
+                <option value="wp">Weighted Product (WP)</option>
+                <option value="topsis">TOPSIS</option>
+            </select>
+        </label>
+
+        <!-- Manage Criteria Table -->
+        <h3 class="text-xl font-semibold mt-4">Criteria</h3>
+        <table class="w-full mt-2 border-collapse border border-gray-300">
+            <thead>
+                <tr class="bg-gray-100">
+                    <th class="border px-4 py-2">Criteria Name</th>
+                    <th class="border px-4 py-2">Weight</th>
+                    <th class="border px-4 py-2">Value</th>
+                    <th class="border px-4 py-2">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="criteria-list"></tbody>
+        </table>
+
+        <!-- Add New Criteria -->
+        <div class="mt-4">
+            <input type="text" id="new-criteria-name" placeholder="Criteria Name" class="border p-2 rounded">
+            <input type="number" id="new-criteria-weight" placeholder="Weight" class="border p-2 rounded" step="0.1">
+            <button onclick="addCriteria()" class="bg-blue-500 text-white px-4 py-2 rounded">+ Add</button>
+        </div>
+
+        <!-- Calculate Button -->
+        <button onclick="calculateRankings()" class="w-full bg-green-500 text-white px-4 py-2 mt-4 rounded-lg shadow hover:bg-green-600">
+            Calculate
+        </button>
+
+        <!-- Results -->
+        <div id="results" class="mt-4"></div>
+    </div>
+
+    <script>
+        function loadCriteria() {
+            axios.get('/criteria').then(response => {
+                const criteria = response.data;
+                const list = document.getElementById('criteria-list');
+                list.innerHTML = '';
+
+                criteria.forEach(crit => {
+                    list.innerHTML += `
+                        <tr class="text-center border">
+                            <td class="border px-4 py-2">${crit.name}</td>
+                            <td class="border px-4 py-2">${crit.weight}</td>
+                            <td class="border px-4 py-2">
+                                <input type="number" id="value_${crit.id}" placeholder="Enter value" class="border p-1 rounded w-20">
+                            </td>
+                            <td class="border px-4 py-2">
+                                <button onclick="deleteCriteria(${crit.id})" class="text-red-500">🗑</button>
+                                <button onclick="toggleCriteria(${crit.id})" class="${crit.is_active ? 'text-green-500' : 'text-gray-500'}">
+                                    ${crit.is_active ? '✅' : '❌'}
+                                </button>
+                            </td>
+                        </tr>`;
+                });
+            });
+        }
+
+        function addCriteria() {
+            const name = document.getElementById("new-criteria-name").value;
+            const weight = parseFloat(document.getElementById("new-criteria-weight").value) || 1.0;
+            
+            if (!name) return alert("Please enter a criteria name!");
+
+            axios.post('/criteria', { action: 'add', name, weight }).then(() => {
+                document.getElementById("new-criteria-name").value = "";
+                document.getElementById("new-criteria-weight").value = "";
+                loadCriteria();
+            });
+        }
+
+        function deleteCriteria(id) {
+            axios.post('/criteria', { action: 'delete', id }).then(() => loadCriteria());
+        }
+
+        function toggleCriteria(id) {
+            axios.post('/criteria', { action: 'toggle', id }).then(() => loadCriteria());
+        }
+
+        function calculateRankings() {
+            const method = document.getElementById('method').value;
+            axios.post('/calculate', { method }).then(response => {
+                const results = response.data;
+                const resultsDiv = document.getElementById('results');
+                resultsDiv.innerHTML = `<h3 class="text-xl font-semibold">Results</h3>`;
+
+                results.forEach((res, index) => {
+                    resultsDiv.innerHTML += `<p class="text-gray-700">${index + 1}. ${res.name} - Score: ${res.score}</p>`;
+                });
+            });
+        }
+
+        loadCriteria();  // Load criteria on page load
+    </script>
+</body>
+</html>
